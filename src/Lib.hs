@@ -1,9 +1,10 @@
 module Lib (run) where
 
+import AST (Expression)
 import Data.Bifunctor (bimap, first)
 import Interpreter (interpret)
 import Parser (parse)
-import TypeChecker (Expression, check)
+import TypeChecker (check)
 import Util.Parsing (Result (..))
 
 run :: String -> Result String Expression

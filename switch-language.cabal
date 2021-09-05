@@ -25,10 +25,10 @@ source-repository head
 
 library
   exposed-modules:
+      AST
       Interpreter
       Lib
       Parser
-      RuntimeAST
       TypeChecker
       Util.Parsing
   other-modules:

@@ -3,12 +3,10 @@
 
 module Interpreter where
 
+import AST
 import Control.Monad (foldM, (>=>))
 import Data.Bifunctor (bimap, first)
-import RuntimeAST
 import Util.Parsing (Result (..), successOr)
-
-type Env = [(String, Expression)]
 
 interpret :: Expression -> Result String Expression
 interpret expr = reduce prelude (Appl [expr, Quote (ID "main")])
@@ -25,6 +23,7 @@ reduce env (Unquote other) = Error $ "Cannot unquote " ++ show other
 reduce _ other = Success other
 
 apply :: Env -> Expression -> Expression -> Result String Expression
+apply env (TypeVal _) x = Success x -- Ignore type annotations at runtime
 apply env (Dict vals) id = do
   vals' <- mapM (\(k, v) -> (,v) <$> reduce env k) vals
   case lookup id vals' of
@@ -46,13 +45,14 @@ apply env (Internal (ElemOf1 dict)) id = do
   case lookup id vals' of
     Just x -> Success $ Nbr 1
     Nothing -> Success $ Nbr 0
-apply _ (Internal ITDict) (Dict ts) = undefined
-apply _ (Internal ITDictLen) (Nbr len) = undefined
-apply _ (Internal ITAppl) (Appl ts) = undefined
-apply _ (Internal ITApplLen) (Nbr len) = undefined
-apply _ (Internal ITQuote) (TypeVal t) = undefined
-apply _ (Internal ITFn0) (TypeVal ta) = undefined
-apply _ (Internal (ITFn1 a)) (TypeVal b) = undefined
+apply _ (Internal ITDict) (Dict ts) = Success $ TypeVal (TDict ts)
+apply _ (Internal ITDictLen) (Nbr len) = Success $ TypeVal (TDictLen len)
+apply _ (Internal ITAppl) (Appl ts) = Success $ TypeVal (TAppl ts)
+apply _ (Internal ITApplLen) (Nbr len) = Success $ TypeVal (TApplLen len)
+apply _ (Internal ITQuote) (TypeVal t) = Success $ TypeVal (TQuote (TypeVal t))
+apply _ (Internal ITFn0) (TypeVal ta) = Success $ Internal (ITFn1 ta)
+apply _ (Internal (ITFn1 a)) (TypeVal b) = Success $ TypeVal (TFn (TypeVal a) (TypeVal b))
+apply _ (Internal ITID) (Quote (ID id)) = Success $ TypeVal (TID id)
 apply env a@(Appl _) b = reduce env a >>= \a' -> apply env a' b
 apply env a b@(Appl _) = reduce env b >>= \b' -> apply env a b'
 apply _ a b = Error $ "Cannot apply " ++ show b ++ " to " ++ show a
@@ -60,32 +60,3 @@ apply _ a b = Error $ "Cannot apply " ++ show b ++ " to " ++ show a
 getExprChar :: Expression -> Result String Char
 getExprChar (Ch char) = Success char
 getExprChar other = Error $ show other ++ " is not a char"
-
-levelenv vals' = foldl (\li x -> successOr ((: li) <$> x) li) [] (map get_id vals')
-  where
-    get_id (Quote (ID id), v) = Success (id, v)
-    get_id (x, _) = Error $ show x ++ " is not an id"
-
-prelude :: [(String, Expression)]
-prelude =
-  [ ("add", Internal Add),
-    ("concat", Internal Add),
-    ("head", Internal Head),
-    ("tail", Internal Tail),
-    ("len", Internal Len),
-    ("lambda", Internal Lambda0),
-    ("elemof", Internal ElemOf0),
-    ("Dict", Internal ITDict),
-    ("DictLen", Internal ITDictLen),
-    ("DictAny", TypeVal TDictAny),
-    ("List", Internal ITAppl),
-    ("ListLen", Internal ITApplLen),
-    ("ListAny", TypeVal TApplAny),
-    ("Quote", Internal ITQuote),
-    ("Fn", Internal ITFn0),
-    ("Chr", TypeVal TCh),
-    ("Nbr", TypeVal TNbr),
-    ("ID", TypeVal TID),
-    ("Type", TypeVal TType),
-    ("?", TypeVal TAny)
-  ]

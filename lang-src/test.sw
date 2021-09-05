@@ -7,4 +7,8 @@
       1 = (dict val)
       0 = (dict #_)
 ] (elemof dict val))))
+#Bool = @(Dict [
+  (ID True) = ?
+  (ID False) = ?
+])
 ]
