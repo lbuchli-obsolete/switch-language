@@ -5,7 +5,7 @@ module Interpreter where
 
 import Control.Monad (foldM, (>=>))
 import Data.Bifunctor (bimap, first)
-import TypeChecker
+import RuntimeAST
 import Util.Parsing (Result (..), successOr)
 
 type Env = [(String, Expression)]
@@ -44,8 +44,15 @@ apply _ (Internal ElemOf0) (Dict dict) = Success $ Internal $ ElemOf1 dict
 apply env (Internal (ElemOf1 dict)) id = do
   vals' <- mapM (\(k, v) -> (,v) <$> reduce env k) dict
   case lookup id vals' of
-    Just x -> Success $ Boolean True
-    Nothing -> Success $ Boolean False
+    Just x -> Success $ Nbr 1
+    Nothing -> Success $ Nbr 0
+apply _ (Internal ITDict) (Dict ts) = undefined
+apply _ (Internal ITDictLen) (Nbr len) = undefined
+apply _ (Internal ITAppl) (Appl ts) = undefined
+apply _ (Internal ITApplLen) (Nbr len) = undefined
+apply _ (Internal ITQuote) (TypeVal t) = undefined
+apply _ (Internal ITFn0) (TypeVal ta) = undefined
+apply _ (Internal (ITFn1 a)) (TypeVal b) = undefined
 apply env a@(Appl _) b = reduce env a >>= \a' -> apply env a' b
 apply env a b@(Appl _) = reduce env b >>= \b' -> apply env a b'
 apply _ a b = Error $ "Cannot apply " ++ show b ++ " to " ++ show a
@@ -67,5 +74,18 @@ prelude =
     ("tail", Internal Tail),
     ("len", Internal Len),
     ("lambda", Internal Lambda0),
-    ("elemof", Internal ElemOf0)
+    ("elemof", Internal ElemOf0),
+    ("Dict", Internal ITDict),
+    ("DictLen", Internal ITDictLen),
+    ("DictAny", TypeVal TDictAny),
+    ("List", Internal ITAppl),
+    ("ListLen", Internal ITApplLen),
+    ("ListAny", TypeVal TApplAny),
+    ("Quote", Internal ITQuote),
+    ("Fn", Internal ITFn0),
+    ("Chr", TypeVal TCh),
+    ("Nbr", TypeVal TNbr),
+    ("ID", TypeVal TID),
+    ("Type", TypeVal TType),
+    ("?", TypeVal TAny)
   ]

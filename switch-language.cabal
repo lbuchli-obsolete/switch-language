@@ -28,6 +28,7 @@ library
       Interpreter
       Lib
       Parser
+      RuntimeAST
       TypeChecker
       Util.Parsing
   other-modules:

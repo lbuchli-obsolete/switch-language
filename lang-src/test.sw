@@ -4,7 +4,7 @@
       #_ = "Test"
 ])
 #case = (lambda #val #(lambda #dict #([
-      true = (dict val)
-      false = (dict #_)
+      1 = (dict val)
+      0 = (dict #_)
 ] (elemof dict val))))
 ]

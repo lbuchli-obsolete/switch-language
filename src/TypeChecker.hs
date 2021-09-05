@@ -2,84 +2,57 @@
 
 module TypeChecker where
 
+import Control.Monad ((>=>))
 import Data.Bifunctor (bimap)
+import Interpreter (interpret)
 import qualified Parser as P
+import RuntimeAST
 import Util.Parsing (Result (..))
 
-data Expression
-  = Dict [(Expression, Expression)]
-  | Appl [Expression]
-  | Quote Expression
-  | Unquote Expression
-  | Nbr Int
-  | Ch Char
-  | Boolean Bool
-  | ID String
-  | TypeVal Type
-  | Internal Internal
-  deriving (Eq, Show)
-
-data Internal
-  = Add
-  | Adding Int
-  | Concat
-  | Concatenating String
-  | Head
-  | Tail
-  | Len
-  | Lambda0
-  | Lambda1 String
-  | Lambda2 String Expression [(String, Expression)]
-  | ElemOf0
-  | ElemOf1 [(Expression, Expression)]
-  deriving (Eq, Show)
-
-data Type
-  = TDict [(Expression, Expression)]
-  | TDictLen Int
-  | TDictAny
-  | TAppl [Expression]
-  | TApplLen Int
-  | TApplAny
-  | TQuote Expression
-  | TFn Expression Expression
-  | TCh
-  | TBool
-  | TNbr
-  | TID
-  | TType
-  | TAny
-  deriving (Eq, Show)
+type Env = [(String, P.Annotated P.Expression)]
 
 check :: P.Annotated P.Expression -> Result String Expression
-check (P.Dict xs, _) = Dict <$> mapM (transpose . bimap check check) xs
-check (P.Appl xs, _) = Appl <$> mapM check xs
-check (P.Quote x, _) = Quote <$> check x
-check (P.Unquote x, _) = Unquote <$> check x
-check (P.Nbr i, _) = Success $ Nbr i
-check (P.Ch c, _) = Success $ Ch c
-check (P.Boolean b, _) = Success $ Boolean b
-check (P.ID id, _) = Success $ ID id
-check (P.TypeVal t, _) = TypeVal <$> checkType t
+check = checkExpr [] P.TAny >=> Success . fst
 
-checkType :: P.Type -> Result String Type
-checkType (P.TDict xs) = TDict <$> mapM (transpose . bimap check check) xs
-checkType (P.TDictLen i) = Success $ TDictLen i
-checkType P.TDictAny = Success TDictAny
-checkType (P.TAppl xs) = TAppl <$> mapM check xs
-checkType (P.TApplLen i) = Success $ TApplLen i
-checkType P.TApplAny = Success TApplAny
-checkType (P.TQuote x) = TQuote <$> check x
-checkType (P.TFn a b) = do
-  a' <- check a
-  b' <- check b
-  return (TFn a' b')
-checkType P.TCh = Success TCh
-checkType P.TBool = Success TBool
-checkType P.TNbr = Success TNbr
-checkType P.TID = Success TID
-checkType P.TType = Success TType
-checkType P.TAny = Success TAny
+checkExpr ::
+  -- | Runtime Environment
+  Env ->
+  -- | Type Restriction
+  Type ->
+  -- | Parsed Expression & Type
+  P.Annotated P.Expression ->
+  -- | Resulting Expression and inferred type
+  Result String (Expression, Type)
+checkExpr env t (P.Dict xs, _) = Dict <$> mapM (transpose . bimap check check) xs
+checkExpr env t (P.Appl xs, _) = Appl <$> mapM check xs
+checkExpr env t (P.Quote x, _) = Quote <$> check env x
+checkExpr env t (P.Unquote x, _) = Unquote <$> check env x
+checkExpr env t (P.Nbr i, _) = Success (Nbr i, TNbr)
+checkExpr env t (P.Ch c, _) = Success $ Ch c
+checkExpr env t (P.ID id, _) = Success $ ID id
+checkExpr env t (P.TypeVal x, _) = TypeVal <$> checkType env t
+checkExpr env t (P.PreCompute expr, _) = (check env >=> interpret) expr
+
+checkType :: Env -> P.Type -> Result String (Type, Type)
+checkType env (P.TDict xs) = TDict <$> mapM (transpose . bimap check check) xs
+checkType env (P.TDictLen i) = Success $ TDictLen i
+checkType env P.TDictAny = Success TDictAny
+checkType env (P.TAppl xs) = TAppl <$> mapM check xs
+checkType env (P.TApplLen i) = Success $ TApplLen i
+checkType env P.TApplAny = Success TApplAny
+checkType env (P.TQuote x) = TQuote <$> check env x
+checkType env (P.TFn a b) = do
+  (a', ta) <- check env TType a
+  (b', tb) <- check env TType b
+  return (TFn a' b', TType)
+checkType _ P.TCh = Success TCh
+checkType _ P.TNbr = Success TNbr
+checkType _ P.TID = Success TID
+checkType _ P.TType = Success TType
+checkType _ P.TAny = Success TAny
+
+combine :: Type -> Type -> Result String Type
+combine = undefined
 
 transpose :: Monad m => (m a, m b) -> m (a, b)
 transpose (a, b) = do

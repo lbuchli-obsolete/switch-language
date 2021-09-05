@@ -18,11 +18,11 @@ data Expression
   | Appl [Annotated Expression]
   | Quote (Annotated Expression)
   | Unquote (Annotated Expression)
+  | PreCompute (Annotated Expression)
+  | TypeVal Type
   | Nbr Int
   | Ch Char
-  | Boolean Bool
   | ID String
-  | TypeVal Type
   deriving (Eq, Show)
 
 data Type
@@ -35,7 +35,6 @@ data Type
   | TQuote (Annotated Expression)
   | TFn (Annotated Expression) (Annotated Expression)
   | TCh
-  | TBool
   | TNbr
   | TID
   | TType
@@ -46,7 +45,7 @@ parse :: String -> Result (Pos, String) (Annotated Expression)
 parse src = (\(n, _, _) -> n) . snd <$> parseSrc (pDict <* some ws <* eof) src
 
 pExpression :: Parser String Error (Annotated Expression)
-pExpression = pDict <|> pAppl <|> pQuote <|> pUnquote <|> pNbr <|> pBoolean <|> pCh <|> pStr <|> pID
+pExpression = pDict <|> pAppl <|> pQuote <|> pUnquote <|> pPreCompute <|> pNbr <|> pCh <|> pStr <|> pID
 
 pDict :: Parser String Error (Annotated Expression)
 pDict = (\x -> (Dict x, TDict $ replicate (length x) ((TypeVal TAny, TType), (TypeVal TAny, TType)))) <$> (str "[" *> many ws *> sepBy (some ws) p_dictentry <* many ws <* str "]")
@@ -58,9 +57,6 @@ pAppl =
   (\x -> (Appl x, TAppl $ replicate (length x) (TypeVal TAny, TType))) <$> (str "(" *> sepBy (some ws) pExpression <* str ")")
     <|> str "()" $> (Appl [], TAppl [])
 
-pTypeVal :: Parser String Error (Annotated Expression)
-pTypeVal = undefined
-
 pQuote :: Parser String Error (Annotated Expression)
 pQuote = (\ae@(_, t) -> (Quote ae, TQuote (TypeVal t, TType))) <$> (str "#" *> pExpression)
 
@@ -69,6 +65,9 @@ pUnquote = find_type <$> (str "*" *> pExpression)
   where
     find_type ae@(_, TQuote (TypeVal t, _)) = (Unquote ae, t)
     find_type (e, _) = (Unquote (e, TQuote (TypeVal TAny, TType)), TAny)
+
+pPreCompute :: Parser String Error (Annotated Expression)
+pPreCompute = (\x@(_, t) -> (PreCompute x, t)) <$> (str "@" *> pExpression)
 
 pNbr :: Parser String Error (Annotated Expression)
 pNbr = Parser \i -> do
@@ -80,11 +79,6 @@ pNbr = Parser \i -> do
 pCh :: Parser String Error (Annotated Expression)
 pCh = (\x -> (Ch x, TCh)) <$> (str "'" *> (noneOf "\'" <|> str "\\" *> noneOf "") <* str "'")
 
-pBoolean :: Parser String Error (Annotated Expression)
-pBoolean =
-  ((Boolean True, TBool) <$ str "true")
-    <|> ((Boolean False, TBool) <$ str "false")
-
 pStr :: Parser String Error (Annotated Expression)
 pStr =
   (\x@(_, t) -> (Quote x, TQuote (TypeVal t, TType)))
@@ -93,4 +87,4 @@ pStr =
     <$> (str "\"" *> many (noneOf "\\\"" <|> str "\\" *> noneOf "") <* str "\"")
 
 pID :: Parser String Error (Annotated Expression)
-pID = (\x -> (ID x, TID)) <$> some (anyOf "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_")
+pID = (\x -> (ID x, TID)) <$> some (noneOf "[]()#* \t\n\\" <|> str "\\" *> noneOf " \t\n")
