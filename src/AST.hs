@@ -34,6 +34,7 @@ data Internal
   | ITDictLen
   | ITAppl
   | ITApplLen
+  | ITUnion
   | ITQuote
   | ITFn0
   | ITFn1 Type
@@ -46,17 +47,18 @@ data Internal
   deriving (Eq, Show)
 
 data Type
-  = TDict [(Expression, Expression)]
+  = TDict [(Expression, Expression)] -- TODO no dicts
   | TDictLen Int
   | TDictAny
   | TAppl [Expression]
-  | TApplLen Int
+  | TApplLen Int -- TODO remove can be implemented by user
   | TApplAny
+  | TUnion [Expression]
   | TQuote Expression
   | TFn Expression Expression
   | TCh
   | TNbr
-  | TID String
+  | TID String -- TODO is e.g. 3 a type of itself? if so, this is unnessessary
   | TIDAny
   | TType
   | TAny
@@ -77,6 +79,7 @@ prelude =
     ("List", Internal ITAppl),
     ("ListLen", Internal ITApplLen),
     ("ListAny", TypeVal TApplAny),
+    ("Union", Internal ITUnion),
     ("Quote", Internal ITQuote),
     ("Fn", Internal ITFn0),
     ("Chr", TypeVal TCh),

@@ -52,6 +52,7 @@ checkType env TDictAny = Success TDictAny
 checkType env (TAppl xs) = TAppl <$> mapM check xs
 checkType env (TApplLen i) = Success $ TApplLen i
 checkType env TApplAny = Success TApplAny
+checkType env (TUnion ts) = TUnion <$> mapM check ts
 checkType env (TQuote x) = TQuote . fst <$> checkExpr env TType x
 checkType env (TFn a b) = do
   (a', ta) <- checkExpr env TType a
@@ -76,6 +77,7 @@ combine env a@(TypeVal (TDictLen _)) (TypeVal TDictAny) = Success a
 combine env a@(TypeVal (TDictLen _)) b = nomatch a b
 combine env a@(TypeVal TDictAny) (TypeVal TDictAny) = Success a
 combine env a@(TypeVal TDictAny) b = nomatch a b
+-- TODO TAppl, TUnion
 combine env (TypeVal (TQuote a)) (TypeVal (TQuote b)) = TypeVal . TQuote <$> combine env a b
 combine env a@(TypeVal (TQuote _)) b = nomatch a b
 combine env (TypeVal (TFn a b)) (TypeVal (TFn a' b')) = TypeVal <$> (TFn <$> combine env a a' <*> combine env b b')
