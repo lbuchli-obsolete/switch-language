@@ -1,14 +1,14 @@
 module Lib (run) where
 
-import AST (Expression)
+import AST (Expression, prelude)
 import Data.Bifunctor (bimap, first)
-import Interpreter (interpret)
+import Interpreter (reduce)
 import Parser (parse)
-import TypeChecker (check)
+import Precomputer (precompute)
 import Util.Parsing (Result (..))
 
 run :: String -> Result String Expression
 run src = do
-  parsed <- first (\(pos, msg) -> show pos ++ ": " ++ msg) (parse src)
-  checked <- check parsed
-  interpret checked
+  parsed <- Trace "Parsing..." $ first (\(pos, msg) -> show pos ++ ": " ++ msg) (parse src)
+  precomputed <- Trace "Precomputing..." $ precompute prelude parsed
+  Trace "Interpreting..." $ reduce prelude precomputed

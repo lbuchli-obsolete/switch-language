@@ -29,7 +29,7 @@ library
       Interpreter
       Lib
       Parser
-      TypeChecker
+      Precomputer
       Util.Parsing
   other-modules:
       Paths_switch_language

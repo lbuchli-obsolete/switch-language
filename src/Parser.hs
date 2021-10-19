@@ -10,29 +10,21 @@ import Text.Read (readMaybe)
 import Util.Parsing
 
 parse :: String -> Result (Pos, String) Expression
-parse src = (\(n, _, _) -> n) . snd <$> parseSrc (pDict <* some ws <* eof) src
+parse src = (\(n, _, _) -> n) . snd <$> parseSrc (pList <* some ws <* eof) src
 
 pExpression :: Parser String Error Expression
-pExpression = pDict <|> pAppl <|> pQuote <|> pUnquote <|> pPreCompute <|> pNbr <|> pCh <|> pStr <|> pID
+pExpression = pList <|> pPreCompute <|> pNbr <|> pCh <|> pStr <|> pSym
 
-pDict :: Parser String Error Expression
-pDict = Dict <$> (str "[" *> many ws *> sepBy (some ws) p_dictentry <* many ws <* str "]")
-  where
-    p_dictentry = (,) <$> pExpression <*> (many ws *> str "=" *> many ws *> pExpression)
+pPrecomputeExpression :: Parser String Error Expression
+pPrecomputeExpression = pList <|> pNbr <|> pCh <|> pStr <|> pSym
 
-pAppl :: Parser String Error Expression
-pAppl =
-  Appl <$> (str "(" *> sepBy (some ws) pExpression <* str ")")
-    <|> str "()" $> Appl []
-
-pQuote :: Parser String Error Expression
-pQuote = Quote <$> (str "#" *> pExpression)
-
-pUnquote :: Parser String Error Expression
-pUnquote = Unquote <$> (str "*" *> pExpression)
+pList :: Parser String Error Expression
+pList =
+  List <$> (str "(" *> sepBy (some ws) pExpression <* str ")")
+    <|> str "()" $> List []
 
 pPreCompute :: Parser String Error Expression
-pPreCompute = PreCompute <$> (str "@" *> pExpression)
+pPreCompute = PreCompute <$> (str ":" *> pPrecomputeExpression)
 
 pNbr :: Parser String Error Expression
 pNbr = Parser \i -> do
@@ -45,7 +37,7 @@ pCh :: Parser String Error Expression
 pCh = Ch <$> (str "'" *> (noneOf "\'" <|> str "\\" *> noneOf "") <* str "'")
 
 pStr :: Parser String Error Expression
-pStr = Quote . Appl . map Ch <$> (str "\"" *> many (noneOf "\\\"" <|> str "\\" *> noneOf "") <* str "\"")
+pStr = Str <$> (str "\"" *> many (noneOf "\\\"" <|> str "\\" *> noneOf "") <* str "\"")
 
-pID :: Parser String Error Expression
-pID = ID <$> some (noneOf "[]()#* \t\n\\" <|> str "\\" *> noneOf " \t\n")
+pSym :: Parser String Error Expression
+pSym = Sym <$> some (noneOf "(): \t\n\\" <|> str "\\" *> noneOf " \t\n")
