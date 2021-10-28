@@ -20,18 +20,19 @@ pPrecomputeExpression = pList <|> pNbr <|> pCh <|> pStr <|> pSym
 
 pList :: Parser String Error Expression
 pList =
-  List <$> (str "(" *> sepBy (some ws) pExpression <* str ")")
+  List <$> (str "(" *> many ws *> sepBy (some ws) pExpression <* many ws <* str ")")
     <|> str "()" $> List []
 
 pPreCompute :: Parser String Error Expression
 pPreCompute = PreCompute <$> (str ":" *> pPrecomputeExpression)
 
 pNbr :: Parser String Error Expression
-pNbr = Parser \i -> do
-  num <- (\(n, _, _) -> n) . snd <$> parseSrc (some (anyOf "01234566789")) i
-  case readMaybe num of
-    Nothing -> parseError "Not an integer"
-    Just x -> Success (drop (length num) i, (Nbr x, posOffsetOf num, num))
+pNbr = Nbr <$> (readNum =<< nbr)
+  where
+    nbr = (++) <$> (str "-" <|> ("" <$ pEmpty)) <*> some (anyOf "0123456789")
+    readNum n = case readMaybe n of
+      Nothing -> pFail "Not an integer"
+      Just x -> return x
 
 pCh :: Parser String Error Expression
 pCh = Ch <$> (str "'" *> (noneOf "\'" <|> str "\\" *> noneOf "") <* str "'")
